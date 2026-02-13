@@ -110,18 +110,6 @@ This section explains how each model type is executed in code.
 | `gemini-lite`, `gemini`, `gemini-pro` | Cloud API (Google) | Routed to Gemini detector prompt flow (`generateContent`) that parses JSON-like output (`label`, `confidence`, `explanation`). |
 | `distil-dire`, `gramnet-detector`, `npr-r50`, `hive-det` | Not executable (in current build) | Routed to predefined “unavailable exact detector” messages and returns `UNKNOWN` result path. |
 
-#### Detector Routing Order
-
-`detectFraud(...)` uses this order:
-1. Hybrid detector
-2. Exact detector IDs (`/api/detect-exact`)
-3. Unavailable exact-detector guard
-4. Local Transformers.js model map
-5. Forensic algorithms (`ela-algo`, `histogram-algo`)
-6. External API detectors
-7. Gemini detector fallback
-
-Because exact IDs are checked before local model map, IDs like `univfd-clip`/`ateeqq-detector` use the backend-worker path by default.
 
 ---
 
