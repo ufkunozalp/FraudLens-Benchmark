@@ -1,4 +1,4 @@
-# FraudLens Benchmark v2
+# FraudLens Benchmark
 
 FraudLens Benchmark is a full-stack AI workbench for insurance claim-image workflows: synthetic image generation, evidence editing/inpainting, and multi-model fraud detection/benchmarking.
 
@@ -260,8 +260,8 @@ If required env values are missing or placeholders, `setup.sh` prints missing va
 
 1) Clone:
 ```bash
-git clone <YOUR_REPO_URL> fraudlens-benchmark-v2
-cd fraudlens-benchmark-v2
+git clone [<YOUR_REPO_URL>](https://github.com/ufkunozalp/FraudLens-Benchmark.git) fraudlens-benchmark
+cd fraudlens-benchmark
 ```
 
 2) Create env files:
