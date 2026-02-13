@@ -222,9 +222,6 @@ Real secrets are not stored in Git-tracked files.
 
 Real credentials are intentionally excluded from this repository.
 
-The author should provide `env.private.export.txt` privately.  
-Do not upload that file to GitHub.
-
 Professor/grader flow:
 
 1) Create env files from templates:
