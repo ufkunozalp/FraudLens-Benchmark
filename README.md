@@ -260,7 +260,7 @@ If required env values are missing or placeholders, `setup.sh` prints missing va
 
 1) Clone:
 ```bash
-git clone [https://github.com/ufkunozalp/FraudLens-Benchmark.git] fraudlens-benchmark
+git clone https://github.com/ufkunozalp/FraudLens-Benchmark.git fraudlens-benchmark
 cd fraudlens-benchmark
 ```
 
