@@ -1,0 +1,8 @@
+{
+  "name": "FraudLens Benchmark",
+  "description": "A comprehensive workbench for generating synthetic insurance claims, editing images with inpainting, and benchmarking fraud detection models.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
