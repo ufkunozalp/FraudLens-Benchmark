@@ -2,6 +2,7 @@
 # FraudLens setup script
 # - Supports macOS (Homebrew) and Debian/Ubuntu Linux (apt-get)
 # - Installs system/toolchain dependencies
+# - Installs local MongoDB server runtime for macOS/Linux
 # - Creates env files from templates when missing
 # - Validates required env variables before project dependency installation
 # - Installs Node and Python dependencies
@@ -23,6 +24,7 @@ NODE_MIN_MAJOR=20
 NPM_MIN_MAJOR=10
 PY_MIN_MAJOR=3
 PY_MIN_MINOR=10
+MONGODB_REPO_MAJOR=7.0
 
 OS=""
 DISTRO=""
@@ -170,6 +172,21 @@ install_macos_dependencies() {
   fi
 }
 
+install_macos_mongodb() {
+  if command_exists mongod; then
+    log "Local MongoDB server already installed (mongod found)."
+    return
+  fi
+
+  log "Installing local MongoDB server with Homebrew..."
+  brew tap mongodb/brew >/dev/null 2>&1 || true
+  if brew list --versions mongodb-community >/dev/null 2>&1 || brew list --versions mongodb-community@8.0 >/dev/null 2>&1; then
+    return
+  fi
+
+  brew install mongodb-community || brew install mongodb-community@8.0
+}
+
 install_linux_dependencies() {
   resolve_sudo
 
@@ -189,6 +206,87 @@ install_linux_dependencies() {
     log "Installing Node.js 20.x from NodeSource..."
     curl -fsSL https://deb.nodesource.com/setup_20.x | ${SUDO} -E bash -
     ${SUDO} apt-get install -y nodejs
+  fi
+}
+
+get_linux_mongodb_repo_line() {
+  local distro_id="${ID:-${DISTRO}}"
+  local distro_like="${ID_LIKE:-}"
+  local keyring_path="/usr/share/keyrings/mongodb-server-${MONGODB_REPO_MAJOR}.gpg"
+
+  if [[ "${distro_id}" == "ubuntu" || "${distro_like}" == *"ubuntu"* ]]; then
+    local codename="${VERSION_CODENAME:-${UBUNTU_CODENAME:-}}"
+    if [[ -z "${codename}" ]] && command_exists lsb_release; then
+      codename="$(lsb_release -cs)"
+    fi
+    [[ -n "${codename}" ]] || die "Could not determine Ubuntu codename for MongoDB repository setup."
+    printf 'deb [ signed-by=%s ] https://repo.mongodb.org/apt/ubuntu %s/mongodb-org/%s multiverse\n' "${keyring_path}" "${codename}" "${MONGODB_REPO_MAJOR}"
+    return 0
+  fi
+
+  if [[ "${distro_id}" != "debian" && "${distro_like}" != *"debian"* ]]; then
+    warn "Automatic MongoDB install supports Debian/Ubuntu derivatives only. Install MongoDB manually for local mode."
+    return 1
+  fi
+
+  local debian_major="${VERSION_ID%%.*}"
+  local debian_codename=""
+  case "${debian_major}" in
+    12)
+      debian_codename="bookworm"
+      ;;
+    11)
+      debian_codename="bullseye"
+      ;;
+    *)
+      warn "Automatic MongoDB install supports Debian 11/12. Current Debian version: ${VERSION_ID:-unknown}. Install MongoDB manually for local mode."
+      return 1
+      ;;
+  esac
+
+  printf 'deb [ signed-by=%s ] https://repo.mongodb.org/apt/debian %s/mongodb-org/%s main\n' "${keyring_path}" "${debian_codename}" "${MONGODB_REPO_MAJOR}"
+}
+
+install_linux_mongodb() {
+  if command_exists mongod; then
+    log "Local MongoDB server already installed (mongod found)."
+    return
+  fi
+
+  resolve_sudo
+
+  local repo_line
+  repo_line="$(get_linux_mongodb_repo_line)" || return 0
+
+  local keyring_path="/usr/share/keyrings/mongodb-server-${MONGODB_REPO_MAJOR}.gpg"
+  local repo_file="/etc/apt/sources.list.d/mongodb-org-${MONGODB_REPO_MAJOR}.list"
+
+  if [[ ! -f "${keyring_path}" ]]; then
+    log "Adding MongoDB apt signing key..."
+    curl -fsSL "https://pgp.mongodb.com/server-${MONGODB_REPO_MAJOR}.asc" | ${SUDO} gpg --dearmor -o "${keyring_path}"
+  fi
+
+  if [[ ! -f "${repo_file}" ]] || ! grep -qF "${repo_line}" "${repo_file}"; then
+    log "Adding MongoDB apt repository..."
+    printf '%s\n' "${repo_line}" | ${SUDO} tee "${repo_file}" >/dev/null
+  fi
+
+  log "Installing local MongoDB server (mongodb-org)..."
+  ${SUDO} apt-get update -y
+  ${SUDO} apt-get install -y mongodb-org
+}
+
+install_local_mongodb_server() {
+  if [[ "${OS}" == "macos" ]]; then
+    install_macos_mongodb
+  else
+    install_linux_mongodb
+  fi
+
+  if command_exists mongod; then
+    log "Local MongoDB runtime is available: $(mongod --version | awk 'NR==1 {print $0}')"
+  else
+    warn "Local MongoDB runtime is not installed. Atlas mode still works; install MongoDB manually for local storage mode."
   fi
 }
 
@@ -359,6 +457,10 @@ Next steps:
 
   2) Start backend only (production-style API process):
      node server/index.js
+
+  3) Optional local MongoDB start (only needed for LOCAL_MONGODB_URI users):
+     macOS: brew services start mongodb-community || brew services start mongodb-community@8.0
+     Linux: sudo systemctl start mongod
 NEXTEOF
 }
 
@@ -376,6 +478,7 @@ main() {
     install_linux_dependencies
   fi
 
+  install_local_mongodb_server
   verify_required_tools
 
   create_env_files_if_missing

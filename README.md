@@ -157,7 +157,7 @@ This section explains how each model type is executed in code.
 | pip | Yes | Python package install | Yes |
 | git | Yes | Repository operations | Yes |
 | MongoDB Atlas URI | Yes | Primary cloud DB connection | Config only |
-| Local MongoDB server | Optional | Local storage mode users | Not auto-installed by default |
+| Local MongoDB server | Optional | Local storage mode users | Yes (macOS/Linux) |
 
 ### 3.2 Package-level dependencies
 
@@ -190,7 +190,7 @@ This section explains how each model type is executed in code.
 - `huggingface_hub`
 
 `setup.sh` validates and installs all missing JS/Python package dependencies.
-It is supported on macOS and Linux only.
+It is supported on macOS and Linux only, and now also installs local MongoDB server runtime (`mongod`) on those platforms.
 
 ---
 
@@ -276,28 +276,65 @@ Paste the real values from the private export file.
 chmod +x setup.sh
 ./setup.sh
 ```
-`setup.sh` works on macOS and Linux. On Windows, install dependencies manually (Node.js, npm, Python, pip, project npm packages, and Python worker packages).
+`setup.sh` works on macOS and Linux and installs toolchain dependencies, project dependencies, and local MongoDB runtime (`mongod`).
+On Windows, install dependencies manually (Node.js, npm, Python, pip, project npm packages, Python worker packages, and MongoDB Community Server if you use `LOCAL_MONGODB_URI`).
 
-4) (Optional) Manual installs:
+4) (Optional) Manual installs (without `setup.sh`):
 ```bash
 npm ci
 cd server && npm ci && cd ..
 python3 -m pip install --user --upgrade transformers torch pillow huggingface_hub
 ```
 
-5) Start local MongoDB only if you use `LOCAL_MONGODB_URI`:
+5) Manual local MongoDB install (only needed if you skip `setup.sh`, use Windows, or `mongod` is still missing):
+
+macOS:
 ```bash
-brew services start mongodb-community
+brew tap mongodb/brew
+brew install mongodb-community || brew install mongodb-community@8.0
+brew services start mongodb-community || brew services start mongodb-community@8.0
+```
+
+Ubuntu:
+```bash
+curl -fsSL https://pgp.mongodb.com/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
+echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu $(. /etc/os-release && echo ${VERSION_CODENAME})/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+sudo apt-get update
+sudo apt-get install -y mongodb-org
+sudo systemctl enable --now mongod
+```
+
+Debian 12:
+```bash
+curl -fsSL https://pgp.mongodb.com/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
+echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0 main" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+sudo apt-get update
+sudo apt-get install -y mongodb-org
+sudo systemctl enable --now mongod
+```
+
+Windows:
+- Install MongoDB Community Server via MSI installer.
+- Start the service from an elevated PowerShell:
+```powershell
+Start-Service MongoDB
+Get-Service MongoDB
+```
+
+6) If local MongoDB is installed but not running, start it:
+```bash
+brew services start mongodb-community || brew services start mongodb-community@8.0
 ```
 ```bash
 sudo systemctl start mongod
 ```
 
-6) Verify:
+7) Verify:
 ```bash
 node -v
 npm -v
 python3 --version
+mongod --version
 npm run build
 npm run dev
 curl http://localhost:3001/api/health
@@ -364,7 +401,12 @@ Check that `MONGODB_URI` is a real URI, not a placeholder.
 
 4) Local storage mode fails:
 ```bash
-brew services start mongodb-community
+mongod --version
+```
+If `mongod` is missing, install local MongoDB using step 5 in **Installation Guide (From Zero)**.
+Then start:
+```bash
+brew services start mongodb-community || brew services start mongodb-community@8.0
 # or
 sudo systemctl start mongod
 ```
@@ -378,4 +420,3 @@ python3 -m pip install --user --upgrade transformers torch pillow huggingface_hu
 ```bash
 lsof -i :3000 -i :3001
 ```
-
